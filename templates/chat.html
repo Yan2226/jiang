@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>酱 - 聊天室</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- 配置Tailwind自定义主题 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF69B4',
+                        secondary: '#FFB6C1',
+                        accent: '#FF1493',
+                        light: '#FFF0F5',
+                        dark: '#333333'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .chat-shadow {
+                box-shadow: 0 2px 10px rgba(255, 105, 180, 0.1);
+            }
+            .btn-hover {
+                transition: all 300ms ease;
+            }
+            .btn-hover:hover {
+                transform: scale(1.05);
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            .message-bubble {
+            max-width: 80%;
+            border-radius: 1rem;
+            padding: 1rem;
+            position: relative;
+            min-width: 80px;
+            word-break: break-word;
+        }
+        
+        .system-message {
+            padding: 0.5rem 1rem;
+            background-color: rgba(229, 231, 235, 0.7);
+            border-radius: 20px;
+            color: #4B5563;
+            font-size: 0.875rem;
+            text-align: center;
+            margin: 1rem auto;
+            max-width: 80%;
+        }
+            .scrollbar-thin {
+                scrollbar-width: thin;
+            }
+            .scrollbar-thin::-webkit-scrollbar {
+                width: 4px;
+                height: 4px;
+            }
+            .scrollbar-thin::-webkit-scrollbar-thumb {
+                background-color: rgba(255, 105, 180, 0.5);
+                border-radius: 2px;
+            }
+            .scrollbar-thin::-webkit-scrollbar-track {
+                background-color: rgba(0, 0, 0, 0.05);
+            }
+        }
+    </style>
+</head>
+<body class="bg-light min-h-screen font-sans text-dark overflow-hidden flex flex-col">
+    <!-- 顶部导航 -->
+    <header class="bg-white border-b border-secondary/30 py-3 px-4 flex justify-between items-center shadow-sm z-10">
+        <div class="flex items-center space-x-2">
+            <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                <i class="fa fa-comment text-white text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold">
+                <span class="text-primary">酱</span> 聊天
+            </h1>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span id="onlineCount" class="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full">
+                <i class="fa fa-users mr-1"></i>
+                <span id="userCount">0</span> 人在线
+            </span>
+            <button id="exitButton" class="bg-red-100 text-red-600 px-4 py-2 rounded-lg btn-hover">
+                <i class="fa fa-sign-out mr-2"></i>退出
+            </button>
+        </div>
+    </header>
+    
+    <!-- 主要内容区 -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <!-- 移动端菜单按钮 -->
+        <div class="md:hidden p-3 bg-white border-b border-secondary/30">
+            <button id="toggleSidebar" class="w-full flex items-center justify-center bg-light hover:bg-secondary/20 py-2 rounded-lg">
+                <i class="fa fa-users mr-2 text-primary"></i>在线用户
+            </button>
+        </div>
+        
+        <!-- 侧边栏 - 在线用户列表 -->
+        <aside id="sidebar" class="w-full md:w-64 bg-white border-r border-secondary/30 hidden md:block md:flex md:flex-col transition-all duration-300 ease-in-out z-20 absolute md:relative top-[73px] md:top-0 left-0 h-[calc(100vh-73px)]">
+            <div class="p-4 border-b border-secondary/30">
+                <h2 class="font-semibold text-lg flex items-center">
+                    <i class="fa fa-users mr-2 text-primary"></i>
+                    在线用户
+                </h2>
+            </div>
+            <div id="userList" class="flex-1 overflow-y-auto scrollbar-thin p-2">
+                <!-- 用户列表将通过JavaScript动态填充 -->
+                <div class="text-center text-gray-400 py-8">
+                    <i class="fa fa-circle-o-notch fa-spin text-2xl mb-2"></i>
+                    <p>连接中...</p>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- 聊天区域 -->
+        <section class="flex-1 flex flex-col overflow-hidden">
+            <!-- 消息显示区域 -->
+            <div id="messages" class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4">
+                <!-- 欢迎消息 -->
+                <div class="flex justify-center">
+                    <div class="bg-gray-100 text-gray-600 text-xs px-4 py-2 rounded-full">
+                        欢迎来到聊天室！输入 @电影 URL 可播放电影，输入 @川小农 可与AI对话
+                    </div>
+                </div>
+                <!-- 消息将通过JavaScript动态填充 -->
+            </div>
+            
+            <!-- 输入区域 -->
+            <div class="bg-white border-t border-secondary/30 p-4">
+                <form id="messageForm" class="flex space-x-2">
+                    <div class="flex-1 relative">
+                        <!-- emoji按钮 -->
+                        <button id="emojiButton" type="button" class="absolute left-3 top-1/2 -translate-y-1/2 text-xl z-10 bg-transparent hover:bg-gray-100 p-1 rounded-full transition-colors duration-200">
+                            😊
+                        </button>
+                        
+                        <!-- emoji选择面板 -->
+                        <div id="emojiPanel" class="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg p-3 hidden z-20 w-64 max-h-60 overflow-y-auto">
+                            <div class="grid grid-cols-8 gap-1">
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">😊</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">😂</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🥰</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">😍</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">😎</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">😢</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">😡</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">👍</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">👎</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">❤️</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🔥</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎉</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎁</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎈</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">😊</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🙏</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎉</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎊</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎂</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎈</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎁</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🎀</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🌟</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">⭐</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">💫</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">✨</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🌙</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">☀️</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🌈</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">❄️</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🔥</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">💧</button>
+                                <button type="button" class="emoji-item text-xl p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">🌊</button>
+                            </div>
+                        </div>
+                        <input 
+                            type="text" 
+                            id="messageInput" 
+                            placeholder="输入消息... (支持@指令，如 @电影 URL 或 @川小农 问题)"
+                            class="w-full pl-12 pr-4 py-3 border border-secondary/50 rounded-full focus:ring-2 focus:ring-primary/50 focus:border-primary focus:outline-none scrollbar-thin text-sm md:text-base"
+                            autocomplete="off"
+                            autofocus
+                        >
+                        <!-- 指令提示 -->
+                        <div id="commandSuggestions" class="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg p-3 hidden">
+                            <p class="text-xs text-gray-500 mb-2">快速指令：</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" class="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full" onclick="insertAtCursor('@电影 ')" title="播放电影">@电影</button>
+                                <button type="button" class="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full" onclick="insertAtCursor('@川小农 ')" title="AI对话">@川小农</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        class="bg-primary text-white p-3 rounded-full btn-hover focus:ring-4 focus:ring-primary/30"
+                    >
+                        <i class="fa fa-paper-plane"></i>
+                    </button>
+                </div>
+
+                <div class="flex justify-between mt-2 text-xs text-gray-400">
+                    <span>支持文本、emoji表情和@指令</span>
+                    <button id="showCommands" class="text-primary hover:underline">显示指令</button>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 消息通知 -->
+    <div id="notification" class="fixed bottom-4 right-4 max-w-xs bg-white rounded-lg shadow-xl p-4 transform transition-all duration-500 translate-y-20 opacity-0 z-50">
+        <div class="flex items-start space-x-3">
+            <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                <i class="fa fa-bell text-white"></i>
+            </div>
+            <div>
+                <h3 id="notificationTitle" class="font-semibold text-sm"></h3>
+                <p id="notificationMessage" class="text-gray-600 text-xs mt-1"></p>
+            </div>
+            <button id="closeNotification" class="text-gray-400 hover:text-gray-600">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- 电影播放器模态框 -->
+    <div id="movieModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+        <div class="relative w-full max-w-4xl p-4">
+            <button id="closeMovieModal" class="absolute -top-12 right-0 text-white text-xl hover:text-primary">
+                <i class="fa fa-times"></i>
+            </button>
+            <div class="bg-white rounded-lg overflow-hidden">
+                <div class="p-3 bg-primary/10 border-b border-primary/20 flex justify-between items-center">
+                    <h3 class="font-semibold text-primary">电影播放</h3>
+                    <span class="text-xs text-gray-500">@电影 指令</span>
+                </div>
+                <div class="p-4">
+                    <div id="moviePlayer" class="w-full aspect-video bg-black rounded-lg flex items-center justify-center">
+                        <i class="fa fa-film text-white/50 text-5xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 获取URL参数
+        function getURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                nickname: params.get('nickname')
+            };
+        }
+        
+        // 插入文本到输入框光标位置
+        function insertAtCursor(text) {
+            const input = document.getElementById('messageInput');
+            const startPos = input.selectionStart;
+            const endPos = input.selectionEnd;
+            const scrollTop = input.scrollTop;
+            
+            input.value = input.value.substring(0, startPos) + text + input.value.substring(endPos, input.value.length);
+            
+            input.focus();
+            input.selectionStart = input.selectionEnd = startPos + text.length;
+            input.scrollTop = scrollTop;
+        }
+        
+        // 显示通知
+        function showNotification(title, message, duration = 3000) {
+            const notification = document.getElementById('notification');
+            const notificationTitle = document.getElementById('notificationTitle');
+            const notificationMessage = document.getElementById('notificationMessage');
+            
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+            
+            // 显示通知
+            notification.classList.remove('translate-y-20', 'opacity-0');
+            notification.classList.add('translate-y-0', 'opacity-100');
+            
+            // 自动关闭
+            setTimeout(() => {
+                notification.classList.remove('translate-y-0', 'opacity-100');
+                notification.classList.add('translate-y-20', 'opacity-0');
+            }, duration);
+        }
+        
+        // 格式化时间
+        function formatTime(timestamp) {
+            const date = new Date(timestamp || Date.now());
+            return date.toLocaleTimeString('zh-CN', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+        
+        // 添加消息到聊天区域
+        function addMessage(messageData, isSelf = false) {
+            const messagesDiv = document.getElementById('messages');
+            const messageEl = document.createElement('div');
+            
+            // 系统消息的特殊处理
+            if (messageData.type === 'system') {
+                messageEl.className = 'flex justify-center mb-4';
+                messageEl.innerHTML = `
+                    <div class="system-message">
+                        ${messageData.message}
+                    </div>
+                `;
+            } else {
+                // 根据消息类型创建不同的内容
+                let contentHTML = '';
+                switch (messageData.type) {
+                    case 'movie':
+                        contentHTML = `
+                            <div class="bg-primary/5 p-2 rounded-lg border border-primary/20">
+                                <p class="text-sm text-gray-500 mb-1">📽️ 电影播放</p>
+                                <a href="${messageData.command_data.url}" class="text-primary hover:underline break-all" target="_blank">${messageData.command_data.url}</a>
+                                <button onclick="showMoviePlayer('${messageData.command_data.url}')" class="mt-1 text-xs bg-primary text-white px-2 py-1 rounded">立即播放</button>
+                            </div>
+                        `;
+                        break;
+                    case 'ai':
+                        contentHTML = `
+                            <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                <p class="text-sm text-gray-500 mb-2">🤖 AI对话 - 川小农</p>
+                                ${messageData.command_data.question ? 
+                                    `<div class="mb-3 pb-2 border-b border-blue-100">
+                                        <p class="text-sm font-medium text-gray-700 mb-1">问题：</p>
+                                        <p>${messageData.command_data.question}</p>
+                                    </div>` : ''}
+                                ${messageData.command_data.response ? 
+                                    `<div>
+                                        <p class="text-sm font-medium text-blue-600 mb-1">AI回复：</p>
+                                        <p>${messageData.command_data.response.replace(/\n/g, '<br>')}</p>
+                                    </div>` : 
+                                    '<p class="text-gray-500">AI正在思考中...</p>'}
+                            </div>
+                        `;
+                        break;
+                    default:
+                        // 处理普通文本消息，支持简单的markdown和emoji
+                        contentHTML = messageData.message
+                            .replace(/\n/g, '<br>')
+                            .replace(/@(\S+)/g, '<span class="text-primary font-medium">@$1</span>');
+                }
+                
+                // 构建消息HTML
+                if (isSelf) {
+                    messageEl.className = 'flex justify-end mb-4';
+                    messageEl.innerHTML = `
+                        <div>
+                            <div class="flex items-center justify-end mb-1">
+                                <span class="text-xs text-gray-400 mr-2">${formatTime(messageData.timestamp)}</span>
+                                <span class="text-xs font-medium text-primary">我</span>
+                            </div>
+                            <div class="message-bubble bg-primary text-white">
+                                ${contentHTML}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    messageEl.className = 'flex mb-4';
+                    messageEl.innerHTML = `
+                        <div class="w-8 h-8 bg-secondary rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+                            <span class="text-white text-xs font-medium">${messageData.nickname.charAt(0)}</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center mb-1">
+                                <span class="text-xs font-medium text-gray-700">${messageData.nickname}</span>
+                                <span class="text-xs text-gray-400 ml-2">${formatTime(messageData.timestamp)}</span>
+                            </div>
+                            <div class="message-bubble bg-white chat-shadow">
+                                ${contentHTML}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            messagesDiv.appendChild(messageEl);
+            // 滚动到底部
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // 更新用户列表
+        function updateUserList(users) {
+            const userListDiv = document.getElementById('userList');
+            const userCountSpan = document.getElementById('userCount');
+            
+            userListDiv.innerHTML = '';
+            userCountSpan.textContent = users.length;
+            
+            if (users.length === 0) {
+                userListDiv.innerHTML = `
+                    <div class="text-center text-gray-400 py-4">
+                        <p>暂无在线用户</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 按昵称排序
+            users.sort().forEach(nickname => {
+                const userEl = document.createElement('div');
+                userEl.className = 'flex items-center p-3 hover:bg-light rounded-lg transition-colors';
+                userEl.innerHTML = `
+                    <div class="w-8 h-8 bg-secondary rounded-full flex items-center justify-center mr-3">
+                        <span class="text-white text-xs font-medium">${nickname.charAt(0)}</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium">${nickname}</p>
+                        <div class="w-2 h-2 bg-green-500 rounded-full mt-1"></div>
+                    </div>
+                `;
+                userListDiv.appendChild(userEl);
+            });
+        }
+        
+        // 显示电影播放器
+        function showMoviePlayer(url) {
+            const movieModal = document.getElementById('movieModal');
+            const moviePlayer = document.getElementById('moviePlayer');
+            
+            // 创建视频元素
+            moviePlayer.innerHTML = `
+                <video controls class="w-full h-full object-contain">
+                    <source src="${url}" type="video/mp4">
+                    您的浏览器不支持视频播放
+                </video>
+            `;
+            
+            movieModal.classList.remove('hidden');
+        }
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = getURLParams();
+            const nickname = params.nickname;
+            
+            if (!nickname) {
+                // 如果没有昵称参数，返回登录页
+                window.location.href = '/';
+                return;
+            }
+            
+            // 获取DOM元素
+            const messageInput = document.getElementById('messageInput');
+            const messageForm = document.getElementById('messageForm');
+            const exitButton = document.getElementById('exitButton');
+            const messagesContainer = document.getElementById('messages');
+            const userList = document.getElementById('userList');
+            const toggleSidebar = document.getElementById('toggleSidebar');
+            const sidebar = document.getElementById('sidebar');
+            const showCommands = document.getElementById('showCommands');
+            const commandSuggestions = document.getElementById('commandSuggestions');
+            const closeMovieModal = document.getElementById('closeMovieModal');
+            const movieModal = document.getElementById('movieModal');
+            const notification = document.getElementById('notification');
+            const closeNotification = document.getElementById('closeNotification');
+            const emojiButton = document.getElementById('emojiButton');
+            const emojiPanel = document.getElementById('emojiPanel');
+            
+            // 初始化Socket.IO连接
+            const socket = io();
+            
+            // 连接成功
+            socket.on('connect', () => {
+                console.log('已连接到服务器');
+                // 加入聊天室
+                socket.emit('join', { nickname });
+            });
+            
+            // 连接断开
+            socket.on('disconnect', () => {
+                console.log('与服务器断开连接');
+                showNotification('连接已断开', '请刷新页面重新连接', 5000);
+            });
+            
+            // 加入成功
+            socket.on('join_success', (data) => {
+                showNotification('欢迎', data.message);
+            });
+            
+            // 加入失败
+            socket.on('join_error', (data) => {
+                showNotification('加入失败', data.message, 5000);
+                // 5秒后返回登录页
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 5000);
+            });
+            
+            // 新消息
+            socket.on('new_message', (messageData) => {
+                const isSelf = messageData.nickname === nickname;
+                addMessage(messageData, isSelf);
+            });
+            
+            // 用户加入
+            socket.on('user_joined', (data) => {
+                showNotification('新用户加入', data.message);
+                // 添加系统消息
+                const systemMessage = {
+                    nickname: '系统',
+                    message: data.message,
+                    timestamp: Date.now(),
+                    type: 'system'
+                };
+                addMessage(systemMessage);
+            });
+            
+            // 用户离开
+            socket.on('user_left', (data) => {
+                // 添加系统消息
+                const systemMessage = {
+                    nickname: '系统',
+                    message: `${data.nickname} 离开了聊天室`,
+                    timestamp: Date.now(),
+                    type: 'system'
+                };
+                addMessage(systemMessage);
+            });
+            
+            // 用户列表更新
+            socket.on('user_list_update', (data) => {
+                updateUserList(data.users);
+            });
+            
+            // 表单提交处理
+            messageForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const message = messageInput.value.trim();
+                if (!message) return;
+                
+                const messageData = {
+                    message,
+                    timestamp: Date.now()
+                };
+                
+                // 发送消息
+                socket.emit('send_message', messageData);
+                
+                // 清空输入框
+                messageInput.value = '';
+            });
+            
+            // 退出按钮
+            exitButton.addEventListener('click', () => {
+                if (confirm('确定要退出聊天室吗？')) {
+                    socket.emit('leave');
+                    socket.disconnect();
+                    window.location.href = '/';
+                }
+            });
+            
+            // 移动端切换侧边栏
+            toggleSidebar.addEventListener('click', () => {
+                sidebar.classList.toggle('hidden');
+            });
+            
+            // 显示指令
+            showCommands.addEventListener('click', () => {
+                commandSuggestions.classList.toggle('hidden');
+            });
+            
+            // emoji按钮点击事件
+            emojiButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                emojiPanel.classList.toggle('hidden');
+            });
+            
+            // emoji项点击事件
+            document.querySelectorAll('.emoji-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const emoji = e.target.textContent;
+                    insertAtCursor(emoji);
+                    emojiPanel.classList.add('hidden');
+                });
+            });
+            
+            // emoji功能相关代码已移到页面底部
+            
+            // 点击其他地方关闭面板
+            document.addEventListener('click', (e) => {
+                // 关闭emoji面板
+                if (!e.target.closest('#emojiButton') && !e.target.closest('#emojiPanel')) {
+                    emojiPanel.classList.add('hidden');
+                }
+                // 关闭指令提示
+                if (!e.target.closest('#messageForm')) {
+                    commandSuggestions.classList.add('hidden');
+                }
+                // 关闭侧边栏（移动端）
+                if (!e.target.closest('#sidebar') && !e.target.closest('#toggleSidebar')) {
+                    if (window.innerWidth < 768) {
+                        sidebar.classList.add('hidden');
+                    }
+                }
+            });
+            
+            // 关闭电影模态框
+            closeMovieModal.addEventListener('click', () => {
+                movieModal.classList.add('hidden');
+            });
+            
+            // 关闭通知
+            closeNotification.addEventListener('click', () => {
+                notification.classList.remove('translate-y-0', 'opacity-100');
+                notification.classList.add('translate-y-20', 'opacity-0');
+            });
+            
+            // 监听窗口大小变化
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) {
+                    sidebar.classList.remove('hidden');
+                } else {
+                    sidebar.classList.add('hidden');
+                }
+            });
+            
+            // ESC键关闭模态框
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    movieModal.classList.add('hidden');
+                    commandSuggestions.classList.add('hidden');
+                    emojiPanel.classList.add('hidden');
+                }
+            });
+        });
+        
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>酱 - 聊天应用登录</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义主题 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF69B4',
+                        secondary: '#FFB6C1',
+                        accent: '#FF1493',
+                        light: '#FFF0F5',
+                        dark: '#333333'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 300ms ease;
+            }
+            .btn-hover:hover {
+                transform: scale(1.05);
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+            .input-focus:focus {
+                box-shadow: 0 0 0 2px rgba(255, 105, 180, 0.5);
+                border-color: #FF69B4;
+                outline: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-light to-secondary min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+    <!-- 登录容器 -->
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all duration-500 hover:shadow-2xl">
+        <!-- 头部装饰 -->
+        <div class="bg-primary h-3"></div>
+        
+        <!-- 登录表单 -->
+        <div class="p-8">
+            <!-- 应用Logo和标题 -->
+            <div class="text-center mb-8">
+                <div class="inline-block w-16 h-16 bg-primary rounded-full flex items-center justify-center mb-4 shadow-lg">
+                    <i class="fa fa-comment text-white text-3xl"></i>
+                </div>
+                <h1 class="text-[clamp(1.8rem,5vw,2.5rem)] font-bold text-dark text-shadow">
+                    <span class="text-primary">酱</span> 聊天
+                </h1>
+                <p class="text-gray-500 mt-2">加入有趣的聊天世界</p>
+            </div>
+            
+            <!-- 表单 -->
+            <form id="loginForm" class="space-y-6">
+                <!-- 服务器选择 -->
+                <div class="space-y-2">
+                    <label for="server" class="block text-sm font-medium text-gray-700">
+                        <i class="fa fa-server mr-2 text-primary"></i>服务器
+                    </label>
+                    <div class="relative">
+                        <select 
+                            id="server" 
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg appearance-none input-focus"
+                            required
+                        >
+                            <option value="">加载中...</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                            <i class="fa fa-chevron-down text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 昵称输入 -->
+                <div class="space-y-2">
+                    <label for="nickname" class="block text-sm font-medium text-gray-700">
+                        <i class="fa fa-user mr-2 text-primary"></i>昵称
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="nickname" 
+                            placeholder="请输入您的昵称" 
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg input-focus"
+                            maxlength="20"
+                            required
+                        >
+                        <div class="absolute inset-y-0 right-0 flex items-center px-3">
+                            <i id="nicknameStatus" class="fa fa-circle text-gray-300"></i>
+                        </div>
+                    </div>
+                    <p id="nicknameHint" class="text-xs text-gray-400">2-20个字符，支持中文、英文、数字</p>
+                </div>
+                
+                <!-- 登录按钮 -->
+                <button 
+                    type="submit" 
+                    id="loginButton"
+                    class="w-full bg-primary text-white font-medium py-3 px-6 rounded-lg btn-hover focus:ring-4 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled
+                >
+                    <i class="fa fa-sign-in mr-2"></i>登录聊天室
+                </button>
+            </form>
+            
+            <!-- 提示信息 -->
+            <div id="message" class="mt-6 p-4 rounded-lg hidden"></div>
+        </div>
+    </div>
+    
+    <!-- 底部信息 -->
+    <div class="mt-8 text-center text-gray-500 text-sm">
+        <p>© 2025 酱聊天应用 | 让沟通更有趣</p>
+    </div>
+    
+    <script>
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginForm = document.getElementById('loginForm');
+            const nicknameInput = document.getElementById('nickname');
+            const nicknameStatus = document.getElementById('nicknameStatus');
+            const nicknameHint = document.getElementById('nicknameHint');
+            const serverSelect = document.getElementById('server');
+            const loginButton = document.getElementById('loginButton');
+            const messageDiv = document.getElementById('message');
+            
+            let nicknameCheckTimer = null;
+            let nicknameAvailable = false;
+            let serversLoaded = false;
+            
+            // 加载服务器列表
+            async function loadServers() {
+                try {
+                    const response = await fetch('/api/servers');
+                    const data = await response.json();
+                    
+                    serverSelect.innerHTML = '';
+                    data.servers.forEach(server => {
+                        const option = document.createElement('option');
+                        option.value = server.url;
+                        option.textContent = server.name;
+                        serverSelect.appendChild(option);
+                    });
+                    
+                    serversLoaded = true;
+                    updateButtonState();
+                } catch (error) {
+                    console.error('加载服务器失败:', error);
+                    showMessage('服务器加载失败，请稍后重试', 'error');
+                }
+            }
+            
+            // 检查昵称是否可用
+            async function checkNickname(nickname) {
+                if (!nickname.trim() || nickname.length < 2) {
+                    nicknameStatus.className = 'fa fa-circle text-gray-300';
+                    nicknameAvailable = false;
+                    updateButtonState();
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/check_nickname', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ nickname })
+                    });
+                    
+                    const data = await response.json();
+                    nicknameAvailable = data.available;
+                    
+                    if (data.available) {
+                        nicknameStatus.className = 'fa fa-circle text-green-500';
+                        nicknameHint.textContent = '昵称可用';
+                        nicknameHint.className = 'text-xs text-green-500';
+                    } else {
+                        nicknameStatus.className = 'fa fa-circle text-red-500';
+                        nicknameHint.textContent = '昵称已被使用，请更换';
+                        nicknameHint.className = 'text-xs text-red-500';
+                    }
+                } catch (error) {
+                    console.error('检查昵称失败:', error);
+                    nicknameAvailable = false;
+                    nicknameStatus.className = 'fa fa-circle text-yellow-500';
+                    nicknameHint.textContent = '检查失败，请稍后重试';
+                    nicknameHint.className = 'text-xs text-yellow-500';
+                }
+                
+                updateButtonState();
+            }
+            
+            // 更新登录按钮状态
+            function updateButtonState() {
+                loginButton.disabled = !serversLoaded || !nicknameAvailable || !nicknameInput.value.trim() || nicknameInput.value.length < 2;
+            }
+            
+            // 显示消息提示
+            function showMessage(message, type = 'info') {
+                messageDiv.textContent = message;
+                messageDiv.className = 'mt-6 p-4 rounded-lg';
+                
+                if (type === 'error') {
+                    messageDiv.classList.add('bg-red-50', 'text-red-600', 'border', 'border-red-100');
+                } else if (type === 'success') {
+                    messageDiv.classList.add('bg-green-50', 'text-green-600', 'border', 'border-green-100');
+                } else {
+                    messageDiv.classList.add('bg-blue-50', 'text-blue-600', 'border', 'border-blue-100');
+                }
+                
+                messageDiv.classList.remove('hidden');
+                
+                // 3秒后自动隐藏
+                setTimeout(() => {
+                    messageDiv.classList.add('hidden');
+                }, 3000);
+            }
+            
+            // 昵称输入事件处理
+            nicknameInput.addEventListener('input', () => {
+                const value = nicknameInput.value.trim();
+                
+                // 清除之前的定时器
+                if (nicknameCheckTimer) {
+                    clearTimeout(nicknameCheckTimer);
+                }
+                
+                // 基本长度检查
+                if (value.length < 2) {
+                    nicknameStatus.className = 'fa fa-circle text-yellow-500';
+                    nicknameHint.textContent = '昵称至少需要2个字符';
+                    nicknameHint.className = 'text-xs text-yellow-500';
+                    nicknameAvailable = false;
+                    updateButtonState();
+                    return;
+                }
+                
+                // 防抖：用户停止输入500ms后检查
+                nicknameCheckTimer = setTimeout(() => {
+                    checkNickname(value);
+                }, 500);
+            });
+            
+            // 表单提交处理
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const nickname = nicknameInput.value.trim();
+                const server = serverSelect.value;
+                
+                if (nickname && nicknameAvailable) {
+                    // 跳转到聊天页面
+                    window.location.href = `/chat?nickname=${encodeURIComponent(nickname)}`;
+                } else {
+                    showMessage('请先确保昵称可用', 'error');
+                }
+            });
+            
+            // 初始化加载服务器
+            loadServers();
+        });
+    </script>
+</body>
+</html>

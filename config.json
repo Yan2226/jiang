@@ -1,0 +1,12 @@
+{
+  "servers": [
+    {
+      "name": "默认服务器",
+      "url": "http://localhost:8000"
+    },
+    {
+      "name": "备用服务器",
+      "url": "http://localhost:8000"
+    }
+  ]
+}
