@@ -133,7 +133,14 @@ def chat():
 @app.route('/api/servers')
 def get_servers():
     """获取服务器列表"""
-    return jsonify(servers_config)
+    try:
+        print("收到服务器列表请求")
+        response = jsonify(servers_config)
+        print(f"返回服务器列表: {servers_config}")
+        return response
+    except Exception as e:
+        print(f"服务器列表API出错: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/check_nickname', methods=['POST'])
 def check_nickname():
