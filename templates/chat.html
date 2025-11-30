@@ -106,7 +106,7 @@
     </header>
     
     <!-- 主要内容区 -->
-    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-[calc(100vh-73px)]">
         <!-- 移动端菜单按钮 -->
         <div class="md:hidden p-3 bg-white border-b border-secondary/30">
             <button id="toggleSidebar" class="w-full flex items-center justify-center bg-light hover:bg-secondary/20 py-2 rounded-lg">
@@ -134,7 +134,7 @@
         <!-- 聊天区域 -->
         <section class="flex-1 flex flex-col overflow-hidden">
             <!-- 消息显示区域 -->
-            <div id="messages" class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4">
+            <div id="messages" class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4" style="max-height: calc(100vh - 200px);">
                 <!-- 欢迎消息 -->
                 <div class="flex justify-center">
                     <div class="bg-gray-100 text-gray-600 text-xs px-4 py-2 rounded-full">
@@ -335,25 +335,54 @@
                             <div class="bg-primary/5 p-2 rounded-lg border border-primary/20">
                                 <p class="text-sm text-gray-500 mb-1">📽️ 电影播放</p>
                                 <a href="${messageData.command_data.url}" class="text-primary hover:underline break-all" target="_blank">${messageData.command_data.url}</a>
-                                <button onclick="showMoviePlayer('${messageData.command_data.url}')" class="mt-1 text-xs bg-primary text-white px-2 py-1 rounded">立即播放</button>
+                                <button onclick="showMoviePlayer('${messageData.command_data.parsed_url || messageData.command_data.url}')" class="mt-1 text-xs bg-primary text-white px-2 py-1 rounded">立即播放</button>
                             </div>
                         `;
                         break;
                     case 'ai':
+                        // 处理AI回复的换行，支持后端转义的换行符
+                        let aiResponse = '';
+                        if (messageData.command_data.response) {
+                            // 处理可能的双重转义（后端\n和前端\n）
+                            aiResponse = messageData.command_data.response
+                                .replace(/\\n/g, '\n')  // 处理后端转义的换行
+                                .replace(/\n/g, '<br>');  // 转换为HTML换行
+                        }
+                        
                         contentHTML = `
                             <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                                <p class="text-sm text-gray-500 mb-2">🤖 AI对话 - 川小农</p>
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-sm text-gray-500 flex items-center">
+                                        🤖 <span class="font-medium ml-1">AI对话 - 川小农</span>
+                                    </p>
+                                    ${messageData.command_data.status === 'error' ? 
+                                        '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">处理异常</span>' : 
+                                        '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">已完成</span>'}
+                                </div>
+                                
                                 ${messageData.command_data.question ? 
                                     `<div class="mb-3 pb-2 border-b border-blue-100">
-                                        <p class="text-sm font-medium text-gray-700 mb-1">问题：</p>
-                                        <p>${messageData.command_data.question}</p>
+                                        <p class="text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                            <i class="fa fa-question-circle text-gray-500 mr-1"></i>问题：
+                                        </p>
+                                        <p class="text-gray-700">${messageData.command_data.question}</p>
                                     </div>` : ''}
-                                ${messageData.command_data.response ? 
+                                
+                                ${aiResponse ? 
                                     `<div>
-                                        <p class="text-sm font-medium text-blue-600 mb-1">AI回复：</p>
-                                        <p>${messageData.command_data.response.replace(/\n/g, '<br>')}</p>
+                                        <p class="text-sm font-medium text-blue-600 mb-1 flex items-center">
+                                            <i class="fa fa-lightbulb-o text-blue-500 mr-1"></i>AI回复：
+                                        </p>
+                                        <p class="text-gray-700 whitespace-pre-line">${aiResponse}</p>
                                     </div>` : 
-                                    '<p class="text-gray-500">AI正在思考中...</p>'}
+                                    `<div class="flex items-center text-gray-500">
+                                        <i class="fa fa-circle-o-notch fa-spin mr-2"></i>
+                                        <p>AI正在思考中...</p>
+                                    </div>`}
+                                
+                                <div class="mt-2 text-xs text-gray-400 flex justify-end">
+                                    ${new Date(messageData.timestamp).toLocaleTimeString()}
+                                </div>
                             </div>
                         `;
                         break;
@@ -441,15 +470,54 @@
             const movieModal = document.getElementById('movieModal');
             const moviePlayer = document.getElementById('moviePlayer');
             
-            // 创建视频元素
+            // 添加加载状态
             moviePlayer.innerHTML = `
-                <video controls class="w-full h-full object-contain">
-                    <source src="${url}" type="video/mp4">
-                    您的浏览器不支持视频播放
-                </video>
+                <div id="loadingIndicator" class="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-white z-10">
+                    <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p>正在加载视频，请稍候...</p>
+                </div>
+                <iframe 
+                    src="${url}" 
+                    class="w-full h-full" 
+                    frameborder="0" 
+                    allowfullscreen 
+                    id="movieIframe"
+                    onload="hideLoading()"
+                    onerror="showError()"
+                ></iframe>
             `;
             
+            // 添加错误处理的样式
+            moviePlayer.classList.add('relative');
+            
             movieModal.classList.remove('hidden');
+        }
+        
+        // 隐藏加载状态
+        function hideLoading() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.classList.add('opacity-0');
+                setTimeout(() => {
+                    loadingIndicator.remove();
+                }, 300);
+            }
+        }
+        
+        // 显示错误提示
+        function showError() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const moviePlayer = document.getElementById('moviePlayer');
+            
+            if (loadingIndicator) {
+                loadingIndicator.innerHTML = `
+                    <div class="text-red-500 text-4xl mb-4">⚠️</div>
+                    <p class="text-xl mb-2">视频加载失败</p>
+                    <p class="text-gray-300 mb-4">可能是URL无效或网络问题</p>
+                    <button onclick="document.getElementById('movieModal').classList.add('hidden')" class="bg-primary text-white px-4 py-2 rounded">关闭</button>
+                `;
+                loadingIndicator.classList.remove('animate-spin');
+            }
         }
         
         // 页面加载完成后执行

@@ -1,11 +1,16 @@
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_cors import CORS
 import json
 import re
 import random
+import urllib.parse
+import requests
+import time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
+CORS(app)  # 添加CORS支持
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # 存储在线用户信息
@@ -31,7 +36,54 @@ except FileNotFoundError:
     save_config()
 
 def generate_ai_response(question):
-    """模拟AI对话响应"""
+    """调用WebAI接口生成AI对话响应"""
+    if not question:
+        return "您好！我是AI助手川小农，请问有什么可以帮助您的吗？"
+    
+    # 尝试调用WebAI接口（免费的AI对话接口）
+    try:
+        # WebAI接口调用
+        url = "https://api.webai.ai/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": "gpt-3.5-turbo",  # 使用兼容的模型名称
+            "messages": [
+                {"role": "system", "content": "你是AI助手川小农，一个友好、专业的中文助手。请用简洁、清晰的语言回答用户问题。"},
+                {"role": "user", "content": question}
+            ],
+            "max_tokens": 500,
+            "temperature": 0.7
+        }
+        
+        # 添加超时处理
+        response = requests.post(url, headers=headers, json=data, timeout=10)
+        
+        # 检查响应状态
+        if response.status_code == 200:
+            result = response.json()
+            if 'choices' in result and result['choices']:
+                return result['choices'][0]['message']['content']
+            else:
+                # 如果接口返回格式不正确，返回友好提示
+                return "抱歉，我暂时无法获取准确的回复。请稍后再试。"
+        elif response.status_code == 429:
+            # 处理请求过多的情况
+            return "服务器繁忙，请稍后再试。"
+        else:
+            # 其他错误情况
+            return "抱歉，AI服务暂时不可用。请稍后再试。"
+    
+    except requests.RequestException as e:
+        # 处理网络错误、超时等异常
+        print(f"AI接口调用失败: {e}")
+        
+        # 备用：使用本地模拟回复作为fallback
+        return generate_fallback_response(question)
+
+def generate_fallback_response(question):
+    """本地模拟的AI回复（作为API调用失败的备用）"""
     # 预定义的回复模板
     default_responses = [
         "您好！很高兴为您提供帮助。",
@@ -40,10 +92,6 @@ def generate_ai_response(question):
         "谢谢您的提问，我会尽力解答。",
         "这个问题我还需要学习，不过我可以试着回答..."
     ]
-    
-    # 关键词匹配回复
-    if not question:
-        return "您好！我是AI助手川小农，请问有什么可以帮助您的吗？"
     
     question = question.lower()
     
@@ -90,9 +138,23 @@ def get_servers():
 @app.route('/api/check_nickname', methods=['POST'])
 def check_nickname():
     """检查昵称是否可用"""
-    nickname = request.json.get('nickname')
-    is_available = nickname not in users
-    return jsonify({"available": is_available})
+    try:
+        print("收到昵称检查请求")
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "无效的请求数据"}), 400
+        
+        nickname = data.get('nickname')
+        if not nickname:
+            return jsonify({"error": "昵称不能为空"}), 400
+            
+        print(f"检查昵称: {nickname}")
+        is_available = nickname not in users.values()  # 修正：检查的是values而不是keys
+        print(f"昵称是否可用: {is_available}")
+        return jsonify({"available": is_available})
+    except Exception as e:
+        print(f"昵称检查出错: {str(e)}")
+        return jsonify({"error": f"服务器错误: {str(e)}"}), 500
 
 @socketio.on('connect')
 def handle_connect():
@@ -161,18 +223,42 @@ def handle_message(data):
             # 电影指令
             if command == '电影' and command_content:
                 message_type = 'movie'
-                command_data = {'url': command_content}
+                # 提取URL
+                url = command_content.strip()
                 # 验证URL格式
-                if not re.match(r'^https?://', command_content):
+                if not re.match(r'^https?://', url):
                     # 如果不是完整URL，添加http前缀
-                    command_data['url'] = 'http://' + command_content
+                    url = 'http://' + url
+                # URL编码
+                encoded_url = urllib.parse.quote(url)
+                # 拼接至解析接口
+                parsed_url = f"https://jx.m3u8.tv/jiexi/?url={encoded_url}"
+                command_data = {'url': url, 'parsed_url': parsed_url}
             # AI对话指令
             elif command == '川小农':
                 message_type = 'ai'
-                command_data = {'question': command_content}
-                # 模拟AI回复功能
-                ai_response = generate_ai_response(command_content)
-                command_data['response'] = ai_response
+                question = command_content.strip()
+                command_data = {'question': question}
+                
+                try:
+                    # 调用AI回复功能
+                    print(f"处理AI请求: {question}")
+                    start_time = time.time()
+                    ai_response = generate_ai_response(question)
+                    end_time = time.time()
+                    print(f"AI回复生成完成，耗时: {end_time - start_time:.2f}秒")
+                    
+                    # 格式化回复，确保换行正常显示
+                    formatted_response = ai_response.replace('\n', '\\n')
+                    command_data['response'] = formatted_response
+                    command_data['status'] = 'success'
+                    
+                except Exception as e:
+                    # 捕获所有可能的异常
+                    error_message = f"AI处理出错: {str(e)}"
+                    print(error_message)
+                    command_data['response'] = "抱歉，处理您的问题时遇到了困难。请稍后再试。"
+                    command_data['status'] = 'error'
     
     # 构建消息数据
     message_data = {
@@ -197,7 +283,7 @@ def handle_leave():
 
 # 启动服务器
 if __name__ == '__main__':
-    port = 8888  # 使用新端口8888
+    port = 8888  # 使用端口8888
     print('服务器启动中...')
     print(f'访问地址: http://localhost:{port}')
     socketio.run(app, host='0.0.0.0', port=port, debug=True)
