@@ -7,7 +7,7 @@
     <!-- Tailwind CSS v3 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <link href="/static/css/font-awesome.min.css" rel="stylesheet">
     
     <!-- 配置Tailwind自定义主题 -->
     <script>
@@ -50,6 +50,13 @@
                 border-color: #FF69B4;
                 outline: none;
             }
+            .tab-active {
+                color: #FF69B4;
+                border-bottom: 2px solid #FF69B4;
+            }
+            .password-toggle {
+                cursor: pointer;
+            }
         }
     </style>
 </head>
@@ -72,46 +79,54 @@
                 <p class="text-gray-500 mt-2">加入有趣的聊天世界</p>
             </div>
             
-            <!-- 表单 -->
-            <form id="loginForm" class="space-y-6">
-                <!-- 服务器选择 -->
-                <div class="space-y-2">
-                    <label for="server" class="block text-sm font-medium text-gray-700">
-                        <i class="fa fa-server mr-2 text-primary"></i>服务器
-                    </label>
-                    <div class="relative">
-                        <select 
-                            id="server" 
-                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg appearance-none input-focus"
-                            required
-                        >
-                            <option value="">加载中...</option>
-                        </select>
-                        <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                            <i class="fa fa-chevron-down text-gray-400"></i>
-                        </div>
-                    </div>
+            <!-- 登录/注册标签页 -->
+            <div class="mb-6">
+                <div class="flex border-b border-gray-200">
+                    <button id="loginTab" class="flex-1 py-3 text-center font-medium tab-active">
+                        <i class="fa fa-sign-in mr-2"></i>登录
+                    </button>
+                    <button id="registerTab" class="flex-1 py-3 text-center font-medium text-gray-500">
+                        <i class="fa fa-user-plus mr-2"></i>注册
+                    </button>
                 </div>
-                
-                <!-- 昵称输入 -->
+            </div>
+            
+            <!-- 登录表单 -->
+            <form id="loginForm" class="space-y-6">
+                <!-- 用户名输入 -->
                 <div class="space-y-2">
-                    <label for="nickname" class="block text-sm font-medium text-gray-700">
-                        <i class="fa fa-user mr-2 text-primary"></i>昵称
+                    <label for="loginUsername" class="block text-sm font-medium text-gray-700">
+                        <i class="fa fa-user mr-2 text-primary"></i>用户名
                     </label>
                     <div class="relative">
                         <input 
                             type="text" 
-                            id="nickname" 
-                            placeholder="请输入您的昵称" 
+                            id="loginUsername" 
+                            placeholder="请输入您的用户名" 
                             class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg input-focus"
                             maxlength="20"
                             required
                         >
+                    </div>
+                </div>
+                
+                <!-- 密码输入 -->
+                <div class="space-y-2">
+                    <label for="loginPassword" class="block text-sm font-medium text-gray-700">
+                        <i class="fa fa-lock mr-2 text-primary"></i>密码
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="loginPassword" 
+                            placeholder="请输入您的密码" 
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg input-focus"
+                            required
+                        >
                         <div class="absolute inset-y-0 right-0 flex items-center px-3">
-                            <i id="nicknameStatus" class="fa fa-circle text-gray-300"></i>
+                            <i class="fa fa-eye password-toggle" onclick="togglePassword('loginPassword')"></i>
                         </div>
                     </div>
-                    <p id="nicknameHint" class="text-xs text-gray-400">2-20个字符，支持中文、英文、数字</p>
                 </div>
                 
                 <!-- 登录按钮 -->
@@ -119,9 +134,82 @@
                     type="submit" 
                     id="loginButton"
                     class="w-full bg-primary text-white font-medium py-3 px-6 rounded-lg btn-hover focus:ring-4 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <i class="fa fa-sign-in mr-2"></i>登录
+                </button>
+            </form>
+            
+            <!-- 注册表单 -->
+            <form id="registerForm" class="space-y-6 hidden">
+                <!-- 用户名输入 -->
+                <div class="space-y-2">
+                    <label for="registerUsername" class="block text-sm font-medium text-gray-700">
+                        <i class="fa fa-user mr-2 text-primary"></i>用户名
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="registerUsername" 
+                            placeholder="请输入用户名（2-20个字符）" 
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg input-focus"
+                            maxlength="20"
+                            required
+                        >
+                        <div class="absolute inset-y-0 right-0 flex items-center px-3">
+                            <i id="usernameStatus" class="fa fa-circle text-gray-300"></i>
+                        </div>
+                    </div>
+                    <p id="usernameHint" class="text-xs text-gray-400">2-20个字符，支持中文、英文、数字</p>
+                </div>
+                
+                <!-- 密码输入 -->
+                <div class="space-y-2">
+                    <label for="registerPassword" class="block text-sm font-medium text-gray-700">
+                        <i class="fa fa-lock mr-2 text-primary"></i>密码
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="registerPassword" 
+                            placeholder="请输入密码（至少6位）" 
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg input-focus"
+                            minlength="6"
+                            required
+                        >
+                        <div class="absolute inset-y-0 right-0 flex items-center px-3">
+                            <i class="fa fa-eye password-toggle" onclick="togglePassword('registerPassword')"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400">密码至少需要6位字符</p>
+                </div>
+                
+                <!-- 确认密码 -->
+                <div class="space-y-2">
+                    <label for="confirmPassword" class="block text-sm font-medium text-gray-700">
+                        <i class="fa fa-check-circle mr-2 text-primary"></i>确认密码
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="confirmPassword" 
+                            placeholder="请再次输入密码" 
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg input-focus"
+                            required
+                        >
+                        <div class="absolute inset-y-0 right-0 flex items-center px-3">
+                            <i class="fa fa-eye password-toggle" onclick="togglePassword('confirmPassword')"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 注册按钮 -->
+                <button 
+                    type="submit" 
+                    id="registerButton"
+                    class="w-full bg-primary text-white font-medium py-3 px-6 rounded-lg btn-hover focus:ring-4 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled
                 >
-                    <i class="fa fa-sign-in mr-2"></i>登录聊天室
+                    <i class="fa fa-user-plus mr-2"></i>注册
                 </button>
             </form>
             
@@ -136,86 +224,117 @@
     </div>
     
     <script>
+        // 切换密码可见性
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.parentElement.querySelector('.fa');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
         // 页面加载完成后执行
         document.addEventListener('DOMContentLoaded', () => {
+            // 获取DOM元素
             const loginForm = document.getElementById('loginForm');
-            const nicknameInput = document.getElementById('nickname');
-            const nicknameStatus = document.getElementById('nicknameStatus');
-            const nicknameHint = document.getElementById('nicknameHint');
-            const serverSelect = document.getElementById('server');
-            const loginButton = document.getElementById('loginButton');
+            const registerForm = document.getElementById('registerForm');
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
             const messageDiv = document.getElementById('message');
             
-            let nicknameCheckTimer = null;
-            let nicknameAvailable = false;
-            let serversLoaded = false;
+            // 登录表单元素
+            const loginUsername = document.getElementById('loginUsername');
+            const loginPassword = document.getElementById('loginPassword');
+            const loginButton = document.getElementById('loginButton');
             
-            // 加载服务器列表
-            async function loadServers() {
-                try {
-                    const response = await fetch('/api/servers');
-                    const data = await response.json();
+            // 注册表单元素
+            const registerUsername = document.getElementById('registerUsername');
+            const registerPassword = document.getElementById('registerPassword');
+            const confirmPassword = document.getElementById('confirmPassword');
+            const registerButton = document.getElementById('registerButton');
+            const usernameStatus = document.getElementById('usernameStatus');
+            const usernameHint = document.getElementById('usernameHint');
+            
+            let usernameCheckTimer = null;
+            let usernameAvailable = false;
+            
+            // 切换登录/注册标签页
+            function switchTab(tab) {
+                if (tab === 'login') {
+                    loginTab.classList.add('tab-active');
+                    loginTab.classList.remove('text-gray-500');
+                    registerTab.classList.remove('tab-active');
+                    registerTab.classList.add('text-gray-500');
                     
-                    serverSelect.innerHTML = '';
-                    data.servers.forEach(server => {
-                        const option = document.createElement('option');
-                        option.value = server.url;
-                        option.textContent = server.name;
-                        serverSelect.appendChild(option);
-                    });
+                    loginForm.classList.remove('hidden');
+                    registerForm.classList.add('hidden');
+                } else {
+                    registerTab.classList.add('tab-active');
+                    registerTab.classList.remove('text-gray-500');
+                    loginTab.classList.remove('tab-active');
+                    loginTab.classList.add('text-gray-500');
                     
-                    serversLoaded = true;
-                    updateButtonState();
-                } catch (error) {
-                    console.error('加载服务器失败:', error);
-                    showMessage('服务器加载失败，请稍后重试', 'error');
+                    registerForm.classList.remove('hidden');
+                    loginForm.classList.add('hidden');
                 }
             }
             
-            // 检查昵称是否可用
-            async function checkNickname(nickname) {
-                if (!nickname.trim() || nickname.length < 2) {
-                    nicknameStatus.className = 'fa fa-circle text-gray-300';
-                    nicknameAvailable = false;
-                    updateButtonState();
+            // 检查用户名是否可用
+            async function checkUsername(username) {
+                if (!username.trim() || username.length < 2) {
+                    usernameStatus.className = 'fa fa-circle text-gray-300';
+                    usernameAvailable = false;
+                    updateRegisterButtonState();
                     return;
                 }
                 
                 try {
-                    const response = await fetch('/api/check_nickname', {
+                    const response = await fetch('/api/check_username', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ nickname })
+                        body: JSON.stringify({ username })
                     });
                     
                     const data = await response.json();
-                    nicknameAvailable = data.available;
+                    usernameAvailable = data.available;
                     
                     if (data.available) {
-                        nicknameStatus.className = 'fa fa-circle text-green-500';
-                        nicknameHint.textContent = '昵称可用';
-                        nicknameHint.className = 'text-xs text-green-500';
+                        usernameStatus.className = 'fa fa-circle text-green-500';
+                        usernameHint.textContent = '用户名可用';
+                        usernameHint.className = 'text-xs text-green-500';
                     } else {
-                        nicknameStatus.className = 'fa fa-circle text-red-500';
-                        nicknameHint.textContent = '昵称已被使用，请更换';
-                        nicknameHint.className = 'text-xs text-red-500';
+                        usernameStatus.className = 'fa fa-circle text-red-500';
+                        usernameHint.textContent = '用户名已被使用，请更换';
+                        usernameHint.className = 'text-xs text-red-500';
                     }
                 } catch (error) {
-                    console.error('检查昵称失败:', error);
-                    nicknameAvailable = false;
-                    nicknameStatus.className = 'fa fa-circle text-yellow-500';
-                    nicknameHint.textContent = '检查失败，请稍后重试';
-                    nicknameHint.className = 'text-xs text-yellow-500';
+                    console.error('检查用户名失败:', error);
+                    usernameAvailable = false;
+                    usernameStatus.className = 'fa fa-circle text-yellow-500';
+                    usernameHint.textContent = '检查失败，请稍后重试';
+                    usernameHint.className = 'text-xs text-yellow-500';
                 }
                 
-                updateButtonState();
+                updateRegisterButtonState();
             }
             
-            // 更新登录按钮状态
-            function updateButtonState() {
-                loginButton.disabled = !serversLoaded || !nicknameAvailable || !nicknameInput.value.trim() || nicknameInput.value.length < 2;
+            // 更新注册按钮状态
+            function updateRegisterButtonState() {
+                const password = registerPassword.value;
+                const confirm = confirmPassword.value;
+                const passwordValid = password.length >= 6;
+                const passwordsMatch = password === confirm && password.length > 0;
+                
+                registerButton.disabled = !usernameAvailable || !passwordValid || !passwordsMatch;
             }
             
             // 显示消息提示
@@ -239,48 +358,111 @@
                 }, 3000);
             }
             
-            // 昵称输入事件处理
-            nicknameInput.addEventListener('input', () => {
-                const value = nicknameInput.value.trim();
+            // 标签页点击事件
+            loginTab.addEventListener('click', () => switchTab('login'));
+            registerTab.addEventListener('click', () => switchTab('register'));
+            
+            // 注册用户名输入事件处理
+            registerUsername.addEventListener('input', () => {
+                const value = registerUsername.value.trim();
                 
                 // 清除之前的定时器
-                if (nicknameCheckTimer) {
-                    clearTimeout(nicknameCheckTimer);
+                if (usernameCheckTimer) {
+                    clearTimeout(usernameCheckTimer);
                 }
                 
                 // 基本长度检查
                 if (value.length < 2) {
-                    nicknameStatus.className = 'fa fa-circle text-yellow-500';
-                    nicknameHint.textContent = '昵称至少需要2个字符';
-                    nicknameHint.className = 'text-xs text-yellow-500';
-                    nicknameAvailable = false;
-                    updateButtonState();
+                    usernameStatus.className = 'fa fa-circle text-yellow-500';
+                    usernameHint.textContent = '用户名至少需要2个字符';
+                    usernameHint.className = 'text-xs text-yellow-500';
+                    usernameAvailable = false;
+                    updateRegisterButtonState();
                     return;
                 }
                 
                 // 防抖：用户停止输入500ms后检查
-                nicknameCheckTimer = setTimeout(() => {
-                    checkNickname(value);
+                usernameCheckTimer = setTimeout(() => {
+                    checkUsername(value);
                 }, 500);
             });
             
-            // 表单提交处理
-            loginForm.addEventListener('submit', (e) => {
+            // 注册密码输入事件处理
+            registerPassword.addEventListener('input', updateRegisterButtonState);
+            confirmPassword.addEventListener('input', updateRegisterButtonState);
+            
+            // 登录表单提交处理
+            loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                const nickname = nicknameInput.value.trim();
-                const server = serverSelect.value;
+                const username = loginUsername.value.trim();
+                const password = loginPassword.value;
                 
-                if (nickname && nicknameAvailable) {
-                    // 跳转到聊天页面
-                    window.location.href = `/chat?nickname=${encodeURIComponent(nickname)}`;
-                } else {
-                    showMessage('请先确保昵称可用', 'error');
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        showMessage('登录成功，正在进入聊天室...', 'success');
+                        setTimeout(() => {
+                            window.location.href = '/chat';
+                        }, 1500);
+                    } else {
+                        showMessage(data.message || '登录失败，请检查用户名和密码', 'error');
+                    }
+                } catch (error) {
+                    console.error('登录失败:', error);
+                    showMessage('登录失败，请稍后重试', 'error');
                 }
             });
             
-            // 初始化加载服务器
-            loadServers();
+            // 注册表单提交处理
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const username = registerUsername.value.trim();
+                const password = registerPassword.value;
+                const confirm = confirmPassword.value;
+                
+                if (password !== confirm) {
+                    showMessage('两次输入的密码不一致', 'error');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        showMessage('注册成功，请登录', 'success');
+                        // 注册成功后切换到登录标签页
+                        switchTab('login');
+                        // 填充用户名
+                        loginUsername.value = username;
+                        // 清空注册表单
+                        registerForm.reset();
+                    } else {
+                        showMessage(data.message || '注册失败，请稍后重试', 'error');
+                    }
+                } catch (error) {
+                    console.error('注册失败:', error);
+                    showMessage('注册失败，请稍后重试', 'error');
+                }
+            });
         });
     </script>
 </body>

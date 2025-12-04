@@ -1,0 +1,61 @@
+/* 简化版Font Awesome CSS，用于解决CDN连接问题 */
+/* 定义常用图标 */
+.fa {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    font-size: inherit;
+    text-align: center;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+/* 定义图标内容 */
+.fa-comment:before { content: "\2709"; }
+.fa-users:before { content: "\1F465"; }
+.fa-sign-out:before { content: "\1F6AA"; }
+.fa-cog:before { content: "\2699"; }
+.fa-circle-o-notch:before { content: "\28FF"; }
+.fa-paper-plane:before { content: "\1F4E9"; }
+.fa-bell:before { content: "\1F514"; }
+.fa-times:before { content: "\00D7"; }
+.fa-film:before { content: "\1F3A5"; }
+.fa-music:before { content: "\266B"; }
+.fa-step-backward:before { content: "\23EE"; }
+.fa-play-circle:before { content: "\25B6"; }
+.fa-step-forward:before { content: "\23ED"; }
+.fa-pause-circle:before { content: "\23F8"; }
+.fa-globe:before { content: "\1F30E"; }
+.fa-clock-o:before { content: "\1F554"; }
+.fa-info-circle:before { content: "\2139"; }
+.fa-external-link:before { content: "\1F517"; }
+.fa-map-marker:before { content: "\1F4CD"; }
+.fa-sun-o:before { content: "\2600"; }
+.fa-newspaper-o:before { content: "\1F4F0"; }
+.fa-search:before { content: "\1F50D"; }
+.fa-chevron-right:before { content: "\25B6"; }
+.fa-exclamation-circle:before { content: "\26A0"; }
+.fa-question-circle:before { content: "\2753"; }
+.fa-lightbulb-o:before { content: "\1F4A1"; }
+.fa-ban:before { content: "\26D4"; }
+.fa-play-circle-o:before { content: "\25BA"; }
+.fa-play:before { content: "\25B6"; }
+.fa-spinner:before { content: "\23F3"; }
+.fa-upload:before { content: "\2B07"; }
+.fa-eye:before { content: "\1F441"; }
+.fa-eye-slash:before { content: "\1F441\20E0"; }
+.fa-circle:before { content: "\25CF"; }
+.fa-check-circle:before { content: "\2713"; }
+.fa-sign-in:before { content: "\1F510"; }
+.fa-user-plus:before { content: "\1F464\2795"; }
+.fa-user:before { content: "\1F464"; }
+
+/* 动画效果 */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.fa-spin {
+    animation: spin 1s infinite linear;
+}
